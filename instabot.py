@@ -64,7 +64,7 @@ class InstaBotDB:
             else:
                 date_unfollowed = user['date_unfollowed']
                 now = datetime.now().strftime('%Y/%m/%d')
-                if InstaBotDB._days_interval(date_unfollowed, now) > days_to_wait:
+                if InstaBotDB._days_interval(date_unfollowed, now) >= days_to_wait:
                     user.pop('date_unfollowed')
                     user['date_followed'] = now
                     self._data['users'][idx] = user
@@ -97,6 +97,7 @@ class InstaBot:
         )
 
     def login(self, username, password, days_to_wait=15, tags=[], comments=[], database='instabotdb.json'):
+        self._username = username
         self._days_to_wait = days_to_wait
         self._tags = tags
         self._comments = comments
@@ -124,7 +125,7 @@ class InstaBot:
         except Exception:
             pass
 
-    def follow(self, num_users, comment_prob=0.1, days_to_wait=15, tags=[], comments=[]):
+    def follow(self, num_users, comment_prob=0.1, days_to_wait=None, tags=[], comments=[]):
         """Follow `num_users` new users.
 
         Find posts tagged with keywords in `tags` which belong to users not currently
@@ -133,7 +134,7 @@ class InstaBot:
         users which have been unfollowed by at least `days_to_wait` days.
 
         """
-        if not days_to_wait:
+        if days_to_wait is None:
             days_to_wait = self._days_to_wait
 
         if not tags:
@@ -202,6 +203,69 @@ class InstaBot:
 
         print(f'Started following {new_users}/{num_users} new users')
 
+    def unfollow(self, max_users, days_to_wait=None):
+        """
+        Unfollow (at most) `max_users` users.
+
+        Go over the list of followed users who have been followed for at least
+        `days_to_wait` days and unfollow (at most) `max_users` of them.
+
+        """
+        if days_to_wait is None:
+            days_to_wait = self._days_to_wait
+
+        # Get all followed users which could be unfollowed
+        now = datetime.now().strftime('%Y/%m/%d')
+
+        following = [u for u in self._db._data['users'] if 'date_followed' in u]
+        following = [
+            u for u in following
+            if InstaBotDB._days_interval(u['date_followed'], now) >= days_to_wait
+        ]
+        following = [u['username'] for u in following]
+
+        # Get all followers
+        self._web.get(f'https://www.instagram.com/{self._username}/')
+        sleep(2)
+
+        self._web.find_element_by_partial_link_text('followers').click()
+        sleep(2)
+
+        followers_list = self._web.find_element_by_css_selector(
+            'body > div.RnEpo.Yx5HN > div > div.isgrP'
+        )
+
+        last_height = self._web.execute_script('''
+            return document.querySelector('div[role="dialog"] .isgrP').scrollHeight
+        ''')
+
+        followers = []
+
+        while True:
+            _followers = followers_list.find_elements_by_xpath('.//a[@href]')
+            followers += [
+                u.get_attribute('href').split('/')[-2]
+                for u in _followers
+            ]
+
+            self._web.execute_script('''
+                var fDialog = document.querySelector('div[role="dialog"] .isgrP');
+                fDialog.scrollTop = fDialog.scrollHeight
+            ''')
+            sleep(2)
+
+            new_height = self._web.execute_script('''
+                return document.querySelector('div[role="dialog"] .isgrP').scrollHeight
+            ''')
+
+            if new_height == last_height:
+                break
+
+            last_height = new_height
+
+        followers = set(followers)
+        return following, followers
+
     def _scroll_down(self, num_pages):
         last_height = self._web.execute_script('return document.body.scrollHeight')
 
@@ -242,4 +306,6 @@ bot.login(
     database='/home/marc/Desktop/instabot.db'
 )
 
-bot.follow(num_users=1, comment_prob=0.1, days_to_wait=1)
+# bot.follow(num_users=1, comment_prob=0.1, days_to_wait=1)
+
+following, followers = bot.unfollow(10)
