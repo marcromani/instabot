@@ -224,6 +224,10 @@ class InstaBot:
         ]
         following = [u['username'] for u in following]
 
+        if not following:
+            print('No users could be unfollowed')
+            return
+
         # Get all followers
         self._web.get(f'https://www.instagram.com/{self._username}/')
         sleep(2)
@@ -263,8 +267,18 @@ class InstaBot:
 
             last_height = new_height
 
-        followers = set(followers)
-        return following, followers
+        # Divide the people we follow in two groups:
+        # The good: People that follow us back.
+        # The bad: People that do not follow us back.
+        good = set(following).intersection(set(followers))
+        bad = set(following) - good
+
+        # Iterate through this list until `max_users` are unfollowed or
+        # the list ends. First unfollow the bad users, then the good ones.
+        users_to_unfollow = list(bad) + list(good)
+
+        for u in users_to_unfollow:
+            pass
 
     def _scroll_down(self, num_pages):
         last_height = self._web.execute_script('return document.body.scrollHeight')
@@ -308,4 +322,4 @@ bot.login(
 
 # bot.follow(num_users=1, comment_prob=0.1, days_to_wait=1)
 
-following, followers = bot.unfollow(10)
+good, bad = bot.unfollow(10)
