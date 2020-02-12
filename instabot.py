@@ -29,13 +29,13 @@ class InstaBotDB:
         """
         Add a new user to the followed list.
 
-        Once a user is added to the list it persists there even if
-        it is unfollowed. Only when `days_to_wait` days have passed it is
-        removed from the list so that it can be followed again without
-        being bothered. It is assumed that this function is called over
-        an unfollowed user, consequently, if the user appears in the
-        database as followed it is marked as unfollowed. This can happen
-        if a user is manually unfollowed.
+        Once a user is added to the list it persists there even if it
+        is unfollowed. Only when `days_to_wait` days have passed it is
+        marked as available and can be followed again (or eventually be
+        removed from the list). It is assumed that this function is called
+        over an unfollowed user, consequently, if the user appears in the
+        database as followed it is marked as unfollowed. This could happen
+        if a user was manually unfollowed.
 
         """
         users = self._data['users']
