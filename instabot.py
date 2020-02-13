@@ -6,6 +6,9 @@ from time import sleep
 from warnings import warn
 
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 class InstaBotDB:
@@ -91,10 +94,12 @@ class InstaBotDB:
 
 
 class InstaBot:
-    def __init__(self, chrome_driver):
+    def __init__(self, chrome_driver='./chromedriver', sleep_time=3):
         self._web = webdriver.Chrome(
             executable_path=chrome_driver
         )
+
+        self.sleep_time = sleep_time
 
     def login(self, username, password, days_to_wait=15, tags=[], comments=[], database='instabotdb.json'):
         self._username = username
@@ -104,7 +109,7 @@ class InstaBot:
         self._db = InstaBotDB(database)
 
         self._web.get('https://www.instagram.com/accounts/login/')
-        sleep(2)
+        sleep(self.sleep_time)
 
         username_box = self._web.find_element_by_name('username')
         password_box = self._web.find_element_by_name('password')
@@ -115,7 +120,7 @@ class InstaBot:
         username_box.send_keys(username)
         password_box.send_keys(password)
         login_button.click()
-        sleep(2)
+        sleep(self.sleep_time)
 
         try:
             notnow = self._web.find_element_by_css_selector(
@@ -157,7 +162,7 @@ class InstaBot:
 
         for tag in tags:
             self._web.get(f'https://www.instagram.com/explore/tags/{tag}/')
-            sleep(2)
+            sleep(self.sleep_time)
 
             pages_per_tag = posts_per_tag // posts_per_page + 1
             posts += self._scroll_down(pages_per_tag)
@@ -175,7 +180,7 @@ class InstaBot:
             url = posts.pop()
 
             self._web.get(url)
-            sleep(2)
+            sleep(self.sleep_time)
 
             username = self._web.find_element_by_css_selector(
                 '#react-root > section > main > div > div > article > header > div.o-MQd.z8cbW > div.PQo_0.RqtMr > div.e1e1d > h2 > a'
@@ -194,14 +199,14 @@ class InstaBot:
                     )
 
                     like_button.click()
-                    sleep(2)
+                    sleep(self.sleep_time)
 
                     follow_button.click()
-                    sleep(2)
+                    sleep(self.sleep_time)
 
                     new_users += 1
 
-        print(f'Started following {new_users}/{num_users} new users')
+        print(f'Following {new_users}/{num_users} new users')
 
     def unfollow(self, max_users, days_to_wait=None):
         """
@@ -225,15 +230,15 @@ class InstaBot:
         following = [u['username'] for u in following]
 
         if not following:
-            print('No users could be unfollowed')
+            print(f'Unfollowed 0/{max_users} users')
             return
 
         # Get all followers
         self._web.get(f'https://www.instagram.com/{self._username}/')
-        sleep(2)
+        sleep(self.sleep_time)
 
         self._web.find_element_by_partial_link_text('followers').click()
-        sleep(2)
+        sleep(self.sleep_time)
 
         followers_list = self._web.find_element_by_css_selector(
             'body > div.RnEpo.Yx5HN > div > div.isgrP'
@@ -256,7 +261,7 @@ class InstaBot:
                 var fDialog = document.querySelector('div[role="dialog"] .isgrP');
                 fDialog.scrollTop = fDialog.scrollHeight
             ''')
-            sleep(2)
+            sleep(self.sleep_time)
 
             new_height = self._web.execute_script('''
                 return document.querySelector('div[role="dialog"] .isgrP').scrollHeight
@@ -274,11 +279,50 @@ class InstaBot:
         bad = set(following) - good
 
         # Iterate through this list until `max_users` are unfollowed or
-        # the list ends. First unfollow the bad users, then the good ones.
-        users_to_unfollow = list(bad) + list(good)
+        # the list ends. First unfollow the good (!) users, then the bad ones.
+        users_to_unfollow = list(good) + list(bad)
 
-        for u in users_to_unfollow:
-            pass
+        deleted_users = 0
+
+        while deleted_users < max_users and users_to_unfollow:
+            u = users_to_unfollow.pop(0)
+
+            self._web.get(f'https://www.instagram.com/{u}/')
+            sleep(self.sleep_time)
+
+            follow_button = self._web.find_element_by_css_selector('button')
+
+            if follow_button.text == 'Following':
+                follow_button.click()
+                sleep(self.sleep_time)
+
+                self._web.find_element_by_xpath(
+                    '//button[text()="Unfollow"]'
+                ).click()
+                sleep(self.sleep_time)
+
+                deleted_users += 1
+            else:
+                # We are not actually following this user, which means
+                # that we manually unfollowed him at some point. Update
+                # the database only.
+                pass
+
+            # Set the user as unfollowed in the database
+            idx, user = [
+                (i, u) for i, u in enumerate(self._data['users'])
+                if u['username'] == u
+            ]
+
+            user.pop('date_followed')
+            user['date_unfollowed'] = datetime.now().strftime('%Y/%m/%d')
+
+            self._data['users'][idx] = user
+
+            with open(self._path, 'w') as f:
+                json.dump(self._data, f)
+
+        print(f'Unfollowed {deleted_users}/{max_users} users')
 
     def _scroll_down(self, num_pages):
         last_height = self._web.execute_script('return document.body.scrollHeight')
@@ -287,7 +331,7 @@ class InstaBot:
 
         for i in range(num_pages):
             self._web.execute_script('window.scrollTo(0, document.body.scrollHeight)')
-            sleep(2)
+            sleep(self.sleep_time)
 
             _posts = self._web.find_elements_by_xpath('//a[@href]')
 
@@ -306,7 +350,7 @@ class InstaBot:
         return posts
 
 
-bot = InstaBot('./chromedriver')
+bot = InstaBot(sleep_time=3)
 
 tags = ['alps', 'skimo', 'skitour', 'mountain', 'snow']
 comments = ['This is great!', 'So cool', 'Amazing!']
@@ -314,12 +358,11 @@ comments = ['This is great!', 'So cool', 'Amazing!']
 bot.login(
     username=os.environ['INSTA_USER'],
     password=os.environ['INSTA_PASS'],
-    days_to_wait=0,
     tags=tags,
     comments=comments,
     database='/home/marc/Desktop/instabot.db'
 )
 
-# bot.follow(num_users=1, comment_prob=0.1, days_to_wait=1)
 
-good, bad = bot.unfollow(10)
+# bot.follow(num_users=3, comment_prob=0.1, days_to_wait=15)
+bot.unfollow(max_users=10, days_to_wait=0)
