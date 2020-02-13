@@ -310,17 +310,17 @@ class InstaBot:
 
             # Set the user as unfollowed in the database
             idx, user = [
-                (i, u) for i, u in enumerate(self._data['users'])
+                (i, u) for i, u in enumerate(self._db._data['users'])
                 if u['username'] == u
             ]
 
             user.pop('date_followed')
             user['date_unfollowed'] = datetime.now().strftime('%Y/%m/%d')
 
-            self._data['users'][idx] = user
+            self._db._data['users'][idx] = user
 
             with open(self._path, 'w') as f:
-                json.dump(self._data, f)
+                json.dump(self._db._data, f)
 
         print(f'Unfollowed {deleted_users}/{max_users} users')
 
