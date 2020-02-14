@@ -410,7 +410,8 @@ if __name__ == '__main__':
             config = vars(args)
             config.pop('cmd')
             json.dump(config, f)
-    elif args.cmd == 'follow':
+
+    else:
         if not os.path.exists('./data/.instabot_config'):
             print('You should configure the bot first!')
             exit()
@@ -418,8 +419,13 @@ if __name__ == '__main__':
         with open('./data/.instabot_config') as f:
             config = json.load(f)
 
-        num_users = args.num_users
-        comment_prob = args.prob_comment if args.prob_comment is not None else config['prob_comment']
+        if args.cmd == 'follow':
+            num_users = args.num_users
+            comment_prob = args.prob_comment if args.prob_comment is not None else config['prob_comment']
+        else:
+            max_users = args.max_users
+            comment_prob = config['prob_comment']
+
         days_to_wait = args.interval if args.interval is not None else config['interval']
         sleep_time = args.sleep if args.sleep is not None else config['sleep']
 
@@ -448,7 +454,7 @@ if __name__ == '__main__':
             database=database
         )
 
-        bot.follow(num_users, comment_prob=comment_prob)
-
-    else:
-        pass
+        if args.cmd == 'follow':
+            bot.follow(num_users, comment_prob=comment_prob)
+        else:
+            bot.unfollow(max_users, days_to_wait=days_to_wait)
