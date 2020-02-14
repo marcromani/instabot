@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+import argparse
 import json
 import os
 from datetime import datetime
@@ -6,9 +9,6 @@ from time import sleep
 from warnings import warn
 
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions
-from selenium.webdriver.support.ui import WebDriverWait
 
 
 class InstaBotDB:
@@ -350,19 +350,95 @@ class InstaBot:
         return posts
 
 
-bot = InstaBot(sleep_time=3)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(required=True, dest='cmd')
 
-tags = ['alps', 'skimo', 'skitour', 'mountain', 'snow']
-comments = ['This is great!', 'So cool', 'Amazing!']
+    parser_config = subparsers.add_parser('config', help='configure the bot', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_follow = subparsers.add_parser('follow', help='follow users', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_unfollow = subparsers.add_parser('unfollow', help='unfollow users', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-bot.login(
-    username=os.environ['INSTA_USER'],
-    password=os.environ['INSTA_PASS'],
-    tags=tags,
-    comments=comments,
-    database='/home/marc/Desktop/instabot.db'
-)
+    # CONFIG parser
+    optional_config = parser_config._action_groups.pop()
+    required_config = parser_config.add_argument_group('required arguments')
+
+    # Required arguments for config
+    required_config.add_argument('-u', '--user', required=True, default=argparse.SUPPRESS, metavar='USERNAME', help='set the account username')
+    required_config.add_argument('-p', '--pass', required=True, default=argparse.SUPPRESS, metavar='PASSWORD', help='set the account password')
+    required_config.add_argument('-t', '--tags', required=True, default=argparse.SUPPRESS, metavar='TAGS_FILE', help='set the tags file')
+    required_config.add_argument('-c', '--comments', required=True, default=argparse.SUPPRESS, metavar='COMMENTS_FILE', help='set the comments file')
+
+    # Optional arguments for config
+    optional_config.add_argument('-d', '--database', default='instabotdb.json', metavar='DATABASE_FILE', help='set the database file')
+    optional_config.add_argument('-s', '--sleep', default=3, metavar='SLEEP_TIME', help='set the sleep time between bot actions in seconds')
+    optional_config.add_argument('-i', '--interval', default=15, metavar='FOLLOW_UNFOLLOW_INTERVAL', help='set the time interval between follow/unfollow actions in days')
+
+    parser_config._action_groups.append(optional_config)
+
+    # FOLLOW parser
+    optional_follow = parser_follow._action_groups.pop()
+    required_follow = parser_follow.add_argument_group('required arguments')
+
+    # Required arguments for follow
+    required_follow.add_argument('-n', '--num_users', required=True, default=argparse.SUPPRESS, metavar='NUM_USERS', help='set the number of users to follow')
+
+    # Optional arguments for follow
+    optional_follow.add_argument('-p', '--comment_prob', default='0.1', metavar='COMMENT_PROB', help='set the probability of commenting a liked post')
+    optional_follow.add_argument('-s', '--sleep', default=3, metavar='SLEEP_TIME', help='set the sleep time between bot actions in seconds')
+    optional_follow.add_argument('-i', '--interval', default=15, metavar='FOLLOW_UNFOLLOW_INTERVAL', help='set the time interval between follow/unfollow actions in days')
+
+    parser_follow._action_groups.append(optional_follow)
+
+    # UNFOLLOW parser
+    optional_unfollow = parser_unfollow._action_groups.pop()
+    required_unfollow = parser_unfollow.add_argument_group('required arguments')
+
+    # Required arguments for unfollow
+    required_unfollow.add_argument('-m', '--max_users', required=True, default=argparse.SUPPRESS, metavar='MAX_USERS', help='set the maximum number of users to unfollow')
+
+    # Optional arguments for unfollow
+    optional_unfollow.add_argument('-s', '--sleep', default=3, metavar='SLEEP_TIME', help='set the sleep time between bot actions in seconds')
+    optional_unfollow.add_argument('-i', '--interval', default=15, metavar='FOLLOW_UNFOLLOW_INTERVAL', help='set the time interval between follow/unfollow actions in days')
+
+    parser_unfollow._action_groups.append(optional_unfollow)
+
+    args = parser.parse_args()
+
+    if args.cmd == 'config':
+        with open('.instabot_config.json', 'w') as f:
+            config = vars(args)
+            config.pop('cmd')
+            json.dump(config, f)
+    elif args.cmd == 'follow':
+        bot = InstaBot(sleep_time=args.sleep)
+
+        # bot.login(
+        #     username=os.environ['INSTA_USER'],
+        #     password=os.environ['INSTA_PASS'],
+        #     tags=tags,
+        #     comments=comments,
+        #     database='/home/marc/Desktop/instabot.db'
+        # )
+
+    else:
+        pass
 
 
-# bot.follow(num_users=3, comment_prob=0.1, days_to_wait=15)
-bot.unfollow(max_users=10, days_to_wait=0)
+
+
+# bot = InstaBot(sleep_time=3)
+
+# tags = ['alps', 'skimo', 'skitour', 'mountain', 'snow']
+# comments = ['This is great!', 'So cool', 'Amazing!']
+
+# bot.login(
+#     username=os.environ['INSTA_USER'],
+#     password=os.environ['INSTA_PASS'],
+#     tags=tags,
+#     comments=comments,
+#     database='/home/marc/Desktop/instabot.db'
+# )
+
+
+# # bot.follow(num_users=3, comment_prob=0.1, days_to_wait=15)
+# bot.unfollow(max_users=10, days_to_wait=0)
