@@ -1,6 +1,11 @@
 # instabot
 ## Simple, easy-to-use Instagram bot
 
+### Requirements
+* `python >= 3.7`
+* `pip install selenium`
+
+### Usage
 Running the bot is easy. First, configure it:
 ```
 python instabot.py config -u USERNAME -p PASSWORD
